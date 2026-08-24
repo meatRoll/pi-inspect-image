@@ -11,6 +11,7 @@ import type {
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
+import { loadInspectImageConfig } from "./config";
 import {
   collectTurnImageAttachments,
   loadImageInput,
@@ -93,7 +94,11 @@ export function createInspectImageTool(): ToolDefinition<typeof inspectImageSche
     ) {
       const registry = ctx.modelRegistry;
 
-      const selection = resolveVisionModel(registry, ctx.model, params.model);
+      // Configured default vision model (env var > inspect-image.json) — read
+      // once per call so a fresh value is honored without /reload.
+      const extensionConfig = await loadInspectImageConfig();
+
+      const selection = resolveVisionModel(registry, ctx.model, params.model, extensionConfig.defaultModel);
       if (!selection) {
         throw new Error(
           "inspect_image: no vision-capable model is available. Configure a vision-capable model in pi (model catalogue, provider, or `images` support) and retry.",

@@ -65,46 +65,81 @@ function visionScore(model: AnyModel): number {
   return score;
 }
 
-/** Resolve `provider/modelId` or bare model id against the registry. */
+/**
+ * Resolve `provider/modelId`, a bare model id, or a fuzzy id substring
+ * (case-insensitive) against the registry. Exact ids win over substring
+ * matches so users are never surprised by partial matches.
+ */
 export function findModelById(registry: ModelRegistry, pattern: string): AnyModel | undefined {
   const trimmed = pattern.trim();
+  if (!trimmed) return undefined;
   const slash = trimmed.lastIndexOf("/");
+  const available = registry.getAvailable();
   if (slash > 0) {
     const provider = trimmed.slice(0, slash);
     const id = trimmed.slice(slash + 1);
-    const found = registry.find(provider, id);
+    const found =
+      registry.find(provider, id) ??
+      available.find((m) => m.id === id && (m.provider === provider || m.provider.toLowerCase() === provider.toLowerCase()));
     if (found) return found;
   }
-  return registry
-    .getAvailable()
-    .find((m) => m.id === trimmed || `${m.provider}/${m.id}` === trimmed || m.name === trimmed);
+  const lower = trimmed.toLowerCase();
+  return (
+    available.find((m) => m.id === trimmed || `${m.provider}/${m.id}` === trimmed || m.name === trimmed) ??
+    available.find((m) => m.id.toLowerCase() === lower) ??
+    available.find((m) => m.id.toLowerCase().includes(lower))
+  );
 }
 
 export interface VisionModelSelection {
   model: AnyModel;
   /** Human-readable source of the selection. */
-  source: "active" | "catalogue" | "explicit";
+  source: "explicit" | "configured" | "active" | "catalogue";
 }
 
+/**
+ * Vision model resolution priority:
+ *   1. `explicitPattern` — the tool's `model` parameter
+ *   2. `configuredDefault` — extension config / PI_INSPECT_IMAGE_MODEL env
+ *   3. `activeModel` — the current session model, when it accepts images
+ *   4. scored catalogue default
+ */
 export function resolveVisionModel(
   registry: ModelRegistry,
   activeModel: AnyModel | undefined,
   explicitPattern?: string,
+  configuredDefault?: string,
 ): VisionModelSelection | null {
   const byId = (pattern: string): AnyModel | undefined => {
     const found = findModelById(registry, pattern);
     return found && found.input.includes("image") ? found : undefined;
   };
 
-  if (explicitPattern) {
-    const found = byId(explicitPattern);
-    if (!found) {
-      throw new Error(
-        `inspect_image: cannot resolve vision-capable model "${explicitPattern}". ` +
-          `Provide a model from the catalogue with image input, or leave \`model\` unset to use the active model or a default vision model.`,
-      );
-    }
-    return { model: found, source: "explicit" };
+  const tryResolve = (pattern: string | undefined, source: VisionModelSelection["source"]): VisionModelSelection | null => {
+    if (!pattern) return null;
+    const found = byId(pattern);
+    if (found) return { model: found, source };
+    return null;
+  };
+
+  const explicit = tryResolve(explicitPattern, "explicit");
+  if (explicit) return explicit;
+  if (explicitPattern && !configuredDefault) {
+    // User explicitly asked for a model we cannot resolve: surface the error
+    // rather than silently falling back.
+    throw new Error(
+      `inspect_image: cannot resolve vision-capable model "${explicitPattern}". ` +
+        `Provide a provider/id or model id from the catalogue with image input, e.g. "New_new_private/Auto-Multi", "qwen3-vl", or "MiniMax-M3".`,
+    );
+  }
+
+  const configured = tryResolve(configuredDefault, "configured");
+  if (configured) return configured;
+  if (configuredDefault) {
+    throw new Error(
+      `inspect_image: the configured default vision model "${configuredDefault}" could not be resolved with image input. ` +
+        `Check PI_INSPECT_IMAGE_MODEL / inspect-image.json, or unset it to use automatic routing.`,
+    );
   }
 
   if (activeModel && activeModel.input.includes("image")) {
