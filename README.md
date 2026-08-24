@@ -90,7 +90,25 @@ pi /resume
 
 ### Configuration
 
-The tool needs no settings. Optional per-call parameters:
+The tool needs no settings. To **pin which vision model** `inspect_image` uses, run the
+`/vision` command inside pi:
+
+```
+/vision                  # interactive picker (lists all vision-capable models)
+/vision Auto-Multi       # set directly — provider/id, exact id, or fuzzy id (case-insensitive)
+/vision show             # show the current configured default
+/vision clear            # back to automatic routing
+```
+
+The selection is persisted to `~/.pi/agent/inspect-image.json` and takes effect immediately.
+
+Vision model resolution priority:
+1. tool `model` parameter
+2. `PI_INSPECT_IMAGE_MODEL` env var or `/vision` configured `defaultModel`
+3. the session's active model (when it accepts images)
+4. scored default from the catalogue (e.g. `qwen*-vl`, `internvl`, `glm-4v`, `claude-3-5`…)
+
+Optional per-call parameters:
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
