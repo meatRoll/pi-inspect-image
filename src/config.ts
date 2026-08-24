@@ -3,13 +3,19 @@
  *
  * Priority (highest wins):
  *   1. `PI_INSPECT_IMAGE_MODEL` environment variable
- *   2. `defaultModel` in `~/.pi/agent/inspect-image.json`
+ *   2. `defaultModel` in `<pi agent dir>/inspect-image.json`
  *
  * The JSON file is optional; everything keeps working without it.
+ *
+ * The file path uses pi's canonical `getAgentDir()` (normally
+ * `~/.pi/agent/`), so it follows `PI_CODING_AGENT_DIR` and renamed builds
+ * (e.g. oh-my-pi's `~/.omp/agent/`). This guarantees the value written by
+ * `/vision` is read back on the next session — persistence is tied to the pi
+ * that runs the extension, never a hardcoded directory.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 export interface InspectImageConfig {
   /** Default vision model used when the tool's `model` parameter is absent. */
@@ -18,7 +24,7 @@ export interface InspectImageConfig {
   maxBytes?: number;
 }
 
-const CONFIG_PATH = join(homedir(), ".pi", "agent", "inspect-image.json");
+const CONFIG_PATH = join(getAgentDir(), "inspect-image.json");
 
 let cachedConfig: InspectImageConfig | undefined;
 let cachedPath: string | undefined;

@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { loadInspectImageConfig } from "./config";
 import { registerInspectImageTool } from "./inspect-image";
 import { registerVisionCommand } from "./commands";
 
@@ -19,6 +20,10 @@ import { registerVisionCommand } from "./commands";
 export default function (pi: ExtensionAPI): void {
   let registered = false;
   pi.on("session_start", async () => {
+    // Prime the config cache so `/vision show` and the interactive picker
+    // reflect the persisted default from the very first command of a session
+    // (cache is module-local and empty until first load).
+    await loadInspectImageConfig().catch(() => {});
     if (registered) return;
     registered = true;
     registerInspectImageTool(pi);

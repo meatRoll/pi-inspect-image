@@ -12,7 +12,12 @@
  * `defaultModel`, which inspect_image reads on every call.
  */
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { configFilePath, describeConfigSource, setDefaultVisionModel } from "./config";
+import {
+  configFilePath,
+  describeConfigSource,
+  loadInspectImageConfig,
+  setDefaultVisionModel,
+} from "./config";
 import { findModelById } from "./model-select";
 
 function formatModelName(provider: string, id: string): string {
@@ -33,6 +38,10 @@ export function registerVisionCommand(pi: ExtensionAPI): void {
       const trimmed = args?.trim() ?? "";
 
       if (trimmed === "show") {
+        // Load fresh from disk: the module-level cache is empty on a new
+        // session until something calls loadInspectImageConfig(), which made
+        // a persisted default look "gone" right after restarting pi.
+        await loadInspectImageConfig();
         const source = describeConfigSource();
         if (source.defaultModel) {
           ctx.ui.notify(
@@ -89,6 +98,7 @@ export function registerVisionCommand(pi: ExtensionAPI): void {
         return;
       }
 
+      await loadInspectImageConfig();
       const current = describeConfigSource().defaultModel;
       const items = [
         ...(current ? [`${current} (current)`] : []),

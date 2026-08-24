@@ -100,7 +100,10 @@ The tool needs no settings. To **pin which vision model** `inspect_image` uses, 
 /vision clear            # back to automatic routing
 ```
 
-The selection is persisted to `~/.pi/agent/inspect-image.json` and takes effect immediately.
+The selection is persisted to `<pi agent dir>/inspect-image.json` (normally
+`~/.pi/agent/inspect-image.json`, following `PI_CODING_AGENT_DIR`) and takes
+effect immediately — including on the next launch. `PI_INSPECT_IMAGE_MODEL`
+env var overrides the file.
 
 Vision model resolution priority:
 1. tool `model` parameter
