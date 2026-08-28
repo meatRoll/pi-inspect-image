@@ -8,7 +8,8 @@ Built for pi's model catalog: even when your main chat model does not accept ima
 input, `inspect_image` routes the image to the best available vision-capable model
 (the active model if it supports images, otherwise a scored default from the
 registered catalogue). No model switching required — the tool does the vision work
-for you.
+for you. When the main model *is* vision-capable, the extension stays out of the
+way: `inspect_image` is deactivated and the model handles images natively.
 
 > This is a re-implementation of the `inspect_image` tool originally developed in
 > [oh-my-pi](https://github.com/earendil-works/oh-my-pi) (a pi fork), built on pi's
@@ -29,6 +30,10 @@ for you.
 - **Model routing** — uses the active model when it accepts images, else the
   highest-scored vision model from your registered catalogue; override with the
   `model` parameter (`"anthropic/claude-sonnet-4-5"` or a bare model id).
+- **Vision-aware activation** — when the session's main model already accepts
+  image input, `inspect_image` is removed from the active tool set entirely (the
+  model reads images natively via `read`). When you switch to a non-vision
+  model, the tool is re-activated automatically.
 - **Cancellation & timeout** — respects the agent's abort signal and enforces a
   5-minute vision request timeout.
 
@@ -122,7 +127,10 @@ Optional per-call parameters:
 
 ## How it works
 
-1. Resolves the vision model (active model → scored catalogue default → explicit override).
+1. Activates the tool only when the active model cannot accept images
+   (`session_start` + `model_select`); vision-capable main models read images
+   natively and never see `inspect_image`.
+2. Resolves the vision model (active model → scored catalogue default → explicit override).
 2. Resolves credentials via `ModelRegistry.getApiKeyAndHeaders`.
 3. Loads the image (attachment reference, data URL, or file with MIME sniffing and
    the 20 MiB cap) and optionally resizes it with pi's built-in `resizeImage`.
